@@ -5,8 +5,62 @@
 --              nätverkssäkerhetsanalys
 -- =====================================================
 
--- Byt till rätt databas (om du inte redan är där)
+-- =====================================================
+-- 0. SKAPA DATABASEN (om den inte redan finns)
+-- =====================================================
+-- Steg 7 i workshoppen säger att du ska skapa databasen i SSMS.
+-- Men om du bara kör det här skriptet (eller kör det i Docker)
+-- måste databasen skapas först. Därför gör vi det här - och bara
+-- OM den inte redan finns, så du kan köra skriptet flera gånger.
+-- =====================================================
+
+IF DB_ID('NetworkSecurityML') IS NULL
+BEGIN
+    CREATE DATABASE NetworkSecurityML;
+    PRINT '✅ Databas NetworkSecurityML skapad';
+END
+ELSE
+BEGIN
+    PRINT 'ℹ️  Databas NetworkSecurityML finns redan - hoppar över skapandet';
+END
+GO
+
+-- Byt till rätt databas
 USE NetworkSecurityML;
+GO
+
+-- =====================================================
+-- 0b. TA BORT GAMLA TABELLER OCH VY (om de finns)
+-- =====================================================
+-- Det här gör att skriptet går att köra flera gånger.
+--
+-- VIKTIGT: Ordningen spelar roll!
+--   1. Vyn måste tas bort först - den refererar till båda tabellerna.
+--   2. Sedan ThreatDetections - den har en FRÄMMANDE NYCKEL till
+--      NetworkTrafficLogs, så den måste tas bort INNAN den tabellen.
+--   3. Till sist NetworkTrafficLogs och SecurityMetrics.
+-- Tagen i fel ordning får du felet:
+--   "Could not drop object 'dbo.NetworkTrafficLogs' because it is
+--    referenced by a FOREIGN KEY constraint."
+-- =====================================================
+
+-- 1. Vyn först (den refererar till NetworkTrafficLogs och ThreatDetections)
+IF OBJECT_ID('dbo.vw_TrafficAnalysis', 'V') IS NOT NULL
+    DROP VIEW dbo.vw_TrafficAnalysis;
+GO
+
+-- 2. Sedan tabellen som har främmande nyckel (måste före NetworkTrafficLogs)
+IF OBJECT_ID('dbo.ThreatDetections', 'U') IS NOT NULL
+    DROP TABLE dbo.ThreatDetections;
+GO
+
+-- 3. Till sist de övriga tabellerna
+IF OBJECT_ID('dbo.SecurityMetrics', 'U') IS NOT NULL
+    DROP TABLE dbo.SecurityMetrics;
+GO
+
+IF OBJECT_ID('dbo.NetworkTrafficLogs', 'U') IS NOT NULL
+    DROP TABLE dbo.NetworkTrafficLogs;
 GO
 
 -- =====================================================
@@ -16,10 +70,7 @@ GO
 -- och fungerar som rådata för vår ML-modell
 -- =====================================================
 
--- Kontrollera om tabellen redan finns och ta bort den (för att köra skriptet flera gånger)
-IF OBJECT_ID('dbo.NetworkTrafficLogs', 'U') IS NOT NULL 
-    DROP TABLE dbo.NetworkTrafficLogs;
-GO
+-- (Tabellen togs bort i steg 0b ovan, så den finns inte just nu)
 
 CREATE TABLE dbo.NetworkTrafficLogs (
     -- Primärnyckel: auto-inkrementerande ID för varje loggrad
@@ -78,9 +129,7 @@ GO
 -- Varje rad motsvarar en prediktion på en loggrad
 -- =====================================================
 
-IF OBJECT_ID('dbo.ThreatDetections', 'U') IS NOT NULL 
-    DROP TABLE dbo.ThreatDetections;
-GO
+-- (Tabellen togs bort i steg 0b ovan, så den finns inte just nu)
 
 CREATE TABLE dbo.ThreatDetections (
     -- Primärnyckel
@@ -124,9 +173,7 @@ GO
 -- Uppdateras automatiskt eller via Python-skript
 -- =====================================================
 
-IF OBJECT_ID('dbo.SecurityMetrics', 'U') IS NOT NULL 
-    DROP TABLE dbo.SecurityMetrics;
-GO
+-- (Tabellen togs bort i steg 0b ovan, så den finns inte just nu)
 
 CREATE TABLE dbo.SecurityMetrics (
     -- Primärnyckel
@@ -165,9 +212,7 @@ GO
 -- att hämta ihopkopplad data i Power BI
 -- =====================================================
 
-IF OBJECT_ID('dbo.vw_TrafficAnalysis', 'V') IS NOT NULL
-    DROP VIEW dbo.vw_TrafficAnalysis;
-GO
+-- (Vyn togs bort i steg 0b ovan, så den finns inte just nu)
 
 CREATE VIEW dbo.vw_TrafficAnalysis AS
 SELECT 

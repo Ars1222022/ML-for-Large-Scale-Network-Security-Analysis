@@ -1,4 +1,4 @@
-# run_ml_analysis.ps1
+﻿# run_ml_analysis.ps1
 # Använder requirements.txt för att installera specifika versioner
 
 $SCRIPT_PATH = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -47,25 +47,34 @@ if (-not $pythonCmd) {
 $version = & $pythonCmd --version
 Write-Color "   OK - $version" -Color Green
 
-# ------------------------------------------------------------
-# 2. SKAPA REQUIREMENTS.TXT MED DINA SPECIFIKA VERSIONER
-# ------------------------------------------------------------
+# =====================================================
+# 2. KONTROLLERA REQUIREMENTS.TXT
+# =====================================================
+# OBS: requirements.txt innehåller EXAKT de versioner som
+# behövs för att ladda modellen (.pkl). Vi skriver INTE
+# över filen - den versionen är lika viktig som modellen
+# själv! (skrivet med ../../../README.md)
 Write-Color ""
-Write-Color "[2/6] Skapar requirements.txt med specifika versioner..." -Color Yellow
+Write-Color "[2/6] Kontrollerar requirements.txt..." -Color Yellow
 
-$requirements = @"
+# Om filen saknas skapar vi den med de verifierade versionerna
+if (-not (Test-Path $REQ_FILE)) {
+    $requirements = @"
 pandas==2.2.3
-numpy==1.26.4
-scikit-learn==1.5.2
+numpy==2.4.6
+scikit-learn==1.6.1
 joblib==1.4.2
 sqlalchemy==2.0.36
 pyodbc==5.2.0
 "@
+    Set-Content -Path $REQ_FILE -Value $requirements -Encoding ASCII
+    Write-Color "   requirements.txt saknades - skapades nu" -Color Green
+} else {
+    Write-Color "   OK - requirements.txt finns (används som den är)" -Color Green
+}
 
-Set-Content -Path $REQ_FILE -Value $requirements -Encoding ASCII
-Write-Color "   OK - requirements.txt skapad" -Color Green
-Write-Color "   Versioner:" -Color White
-Get-Content $REQ_FILE | ForEach-Object { Write-Color "     $_" -Color Gray }
+Write-Color "   Versioner som installeras:" -Color White
+Get-Content $REQ_FILE | Where-Object { $_ -match '\S' -and $_ -notmatch '^#' } | ForEach-Object { Write-Color "     $_" -Color Gray }
 
 # ------------------------------------------------------------
 # 3. UPPGRADERA PIP OCH INSTALLERA PAKET FRÅN REQUIREMENTS.TXT
@@ -83,8 +92,9 @@ Write-Color "   Installerar paket från requirements.txt..." -NoNewline
 if ($LASTEXITCODE -eq 0) {
     Write-Color " OK" -Color Green
 } else {
-    Write-Color " FEL - försöker installera ett i taget..." -Color Yellow
-    foreach ($pkg in @("pandas","numpy","scikit-learn","joblib","sqlalchemy","pyodbc")) {
+    Write-Color " FEL - försöker installera ett i taget (med fästa versioner)..." -Color Yellow
+    # Viktigt: även här används FÄSTA versioner, inte senaste.
+    foreach ($pkg in @("pandas==2.2.3","numpy==2.4.6","scikit-learn==1.6.1","joblib==1.4.2","sqlalchemy==2.0.36","pyodbc==5.2.0")) {
         Write-Color "   Installerar $pkg..." -NoNewline
         & $pythonCmd -m pip install $pkg --quiet 2>$null
         if ($LASTEXITCODE -eq 0) { Write-Color " OK" -Color Green } else { Write-Color " FEL" -Color Red }

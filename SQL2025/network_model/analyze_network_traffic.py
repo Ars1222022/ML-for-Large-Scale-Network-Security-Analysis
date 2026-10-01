@@ -8,21 +8,60 @@ import sys
 from datetime import datetime
 
 # KONFIGURATION
-SERVER_NAME = "localhost"  # ?NDRA DETTA!
+# ---------------------------------------------------------------
+# SERVER_NAME: Ändra här om din SQL Server heter något annat
+#              än "localhost" (t.ex. DESKTOP-ABC123).
+#              Kan även sättas med miljövariabeln SQL_SERVER.
+# ---------------------------------------------------------------
+SERVER_NAME = "localhost"  # ÄNDRA DETTA!
 DATABASE_NAME = "NetworkSecurityML"
 MODEL_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Miljövariabler (valfritt - används t.ex. med Docker).
+# Om de inte sätts används värdena ovan, precis som tidigare.
+SERVER_NAME = os.environ.get("SQL_SERVER", SERVER_NAME)
+DATABASE_NAME = os.environ.get("SQL_DATABASE", DATABASE_NAME)
+
+# SQL_USER/SQL_PASSWORD: lämnar du dem tomma används Windows-autentisering
+# (det vanligaste fallet på en egen dator). Fyller du i dem används
+# SQL-inloggning - det krävs t.ex. för SQL Server i Docker.
+SQL_USER = os.environ.get("SQL_USER", "")
+SQL_PASSWORD = os.environ.get("SQL_PASSWORD", "")
 
 print("="*60)
 print("ANALYS AV NATVERKSTRAFIK MED ML-MODELL")
 print("="*60)
+print(f"Server: {SERVER_NAME} | Database: {DATABASE_NAME}")
+print(f"Inloggning: {'SQL-inloggning (' + SQL_USER + ')' if SQL_USER else 'Windows-autentisering'}")
 
 # 1. ANSLUT TILL SQL SERVER
 try:
-    conn_str = f"mssql+pyodbc://@{SERVER_NAME}/{DATABASE_NAME}?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes"
+    if SQL_USER and SQL_PASSWORD:
+        # SQL-inloggning (t.ex. mot Docker-container)
+        conn_str = (
+            f"mssql+pyodbc://{SQL_USER}:{SQL_PASSWORD}@{SERVER_NAME}/{DATABASE_NAME}"
+            f"?driver=ODBC+Driver+17+for+SQL+Server&TrustServerCertificate=yes"
+        )
+    else:
+        # Windows-autentisering (standard, funkar direkt på Windows)
+        conn_str = (
+            f"mssql+pyodbc://@{SERVER_NAME}/{DATABASE_NAME}"
+            f"?driver=ODBC+Driver+17+for+SQL+Server&trusted_connection=yes"
+        )
     engine = create_engine(conn_str)
+    # Testa anslutningen direkt så vi får ett tydligt felmeddelande
+    with engine.connect() as test_conn:
+        test_conn.exec_driver_sql("SELECT 1")
     print("[1/6] ANSLUTEN TILL SQL SERVER")
 except Exception as e:
     print(f"FEL: {e}")
+    # Observera: raderna nedan ar medvetet skrivna UTAN svenska
+    # tecken (a/ae/o). Console-kodningen pa Windows ar inte
+    # gar att stodja dem, och da blir hjalptexten olaglig.
+    print("\nKontrollera att:")
+    print("  1. SQL Server ar igang")
+    print(f"  2. Databasen '{DATABASE_NAME}' finns (kor create_tables.sql)")
+    print(f"  3. Servernamnet '{SERVER_NAME}' stemmer")
     sys.exit(1)
 
 # 2. LADDA MODELL

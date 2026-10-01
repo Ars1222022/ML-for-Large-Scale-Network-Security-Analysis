@@ -1,0 +1,27 @@
+# ============================================================
+# .NET / IDE - cache och personliga inställningar
+# ============================================================
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+
+# SQL Server / datafiler
+*.mdf
+*.ldf
+*.bak
+
+# Loggar och tillfälliga filer
+*.log
+*.tmp
+Thumbs.db
+desktop.ini
